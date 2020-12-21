@@ -79,8 +79,6 @@ select * from students where id in (
 );
 
 
- 
-
 ```
 
 When you have finished all of the questions - open a pull request with your answers to the `Databases-Homework` repository.

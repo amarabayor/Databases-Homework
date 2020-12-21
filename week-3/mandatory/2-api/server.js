@@ -112,8 +112,41 @@ app.get("/products", function (req, res) {
       });
   });
   
-/// Post customers/:customerId/orders ///???
-
+/// Post customers/:customerId/orders ///
+app.post("/customers/:customerId/orders", function (req, res) {
+  const customerId = req.params.customerId;
+  const date = req.body.date;
+  const reference = req.body.reference;
+​
+  pool
+    .query("SELECT * FROM customers WHERE id=$1;", [customerId])
+    .then((result) => {
+      if (result.rows.length === 0) {
+        return res.status(400).send("Customer does not exist");
+      }
+​
+      if (!date || !reference) {
+        return res
+          .status(400)
+          .send("Please provide an order date and reference");
+      }
+​
+      pool
+        .query(
+          "INSERT INTO orders (order_date, order_reference, customer_id) VALUES ($1, $2, $3);",
+          [date, reference, customerId]
+        )
+        .then(() => res.send("Order created!"))
+        .catch((err) => {
+          console.error(err.stack);
+          res.status(500).send("Internal Server Error");
+        });
+    })
+    .catch((err) => {
+      console.error(err.stack);
+      res.status(500).send("Internal Server Error");
+    });
+});
 
 /// Put customers/:customerId ///
 app.put("/customers/:customerId", function (req, res) {
@@ -136,7 +169,7 @@ app.delete("/orders/:orderId", function (req, res) {
   const orderId = req.params.orderId;
 
   pool
-    .query("DELETE FROM orders WHERE orderId=$1", [orderId])
+    .query("DELETE FROM orders_iterms WHERE orderId=$1", [orderId])
     .then(() => {
       pool
         .query("DELETE FROM orders WHERE id=$1", [orderId])
@@ -151,17 +184,79 @@ app.delete("/customers/:customerId", function (req, res) {
   const customerId = req.params.customerId;
 
   pool
-    .query("DELETE FROM customers WHERE customer_id=$1", [customerId])
+    .query("DELETE FROM bookings WHERE customer_id=$1", [customerId])
     .then(() => {
       pool
         .query("DELETE FROM customers WHERE id=$1", [customerId])
         .then(() => res.send(`Customer ${customerId} deleted!`))
-        .catch((e) => console.error(e.message));
+        .catch((e) =>{
+          console.error(e.stack);
+          res.status(500).send("something went wrong");
+        })
     })
-    .catch((e) => res.status(400).send("Something went wrong"));
+    .catch((e) =>{
+      console.error(e.stack);
+      res.status(500).send("Something went wrong");
+    })
 });
 
 /// Get customers/:customerId/orders ///
+app.get("/customers/:customerId/orders", function (req, res) {
+  const customerId = req.params.customerId;
+​
+  pool
+    .query(
+      `
+        SELECT o.order_reference, o.order_date, p.product_name, p.unit_price, s.supplier_name, oi.quantity
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.id
+        JOIN products p ON p.id = oi.product_id
+        JOIN suppliers s ON s.id = p.supplier_id
+        WHERE customer_id=$1;
+    `,
+      [customerId]
+    )
+    .then((result) => res.json(result.rows))
+    .catch((err) => {
+      console.error(err.stack);
+      res.status(500).send("Internal Server Error");
+    });
+});
+​
+app.post("/customers/:customerId/orders", function (req, res) {
+  const customerId = req.params.customerId;
+  const date = req.body.date;
+  const reference = req.body.reference;
+​
+  pool
+    .query("SELECT * FROM customers WHERE id=$1;", [customerId])
+    .then((result) => {
+      if (result.rows.length === 0) {
+        return res.status(400).send("Customer does not exist");
+      }
+​
+      if (!date || !reference) {
+        return res
+          .status(400)
+          .send("Please provide an order date and reference");
+      }
+​
+      pool
+        .query(
+          "INSERT INTO orders (order_date, order_reference, customer_id) VALUES ($1, $2, $3);",
+          [date, reference, customerId]
+        )
+        .then(() => res.send("Order created!"))
+        .catch((err) => {
+          console.error(err.stack);
+          res.status(500).send("Internal Server Error");
+        });
+    })
+    .catch((err) => {
+      console.error(err.stack);
+      res.status(500).send("Internal Server Error");
+    });
+});
 
 app.listen(3000, function() {
     console.log("Server is listening on port 3000. Ready to accept requests!");
